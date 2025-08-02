@@ -3,6 +3,7 @@
 #include <map>
 #include <utility>
 #include <string>
+#include <limits>
 
 using namespace std;
 
@@ -33,6 +34,15 @@ template <class T>
 CacheManager<T>::~CacheManager() {}
 template <class T>
 bool CacheManager<T>::write_file (string key, T obj) {
+  ofstream outfile("cache_data.txt", ios::app);
+  if(!outfile){
+    cerr << "Error al abrir el archivo para escritura" << endl;
+    return false;
+  }
+
+  outfile << key << " " << obj << "\n";
+
+  outfile.close();
 return true;
 }
 template <class T>
@@ -67,4 +77,36 @@ cache_data[key] = make_pair(obj, 0);
   write_file(key, obj);
 }
 template<class T>
-T CacheManager<T>::get (string key) {}
+T CacheManager<T>::get (string key) {
+  //Busquea  en la cache
+  auto it = cache_data.find(key);
+  if (it != cache_data.end()) {
+    int old_mru = it -> second.second;
+    it -> second.second = 0; // el mas reciente
+  
+    for (auto& pair : cache_data) {
+      if (pair.first != key && pair.second.second < old_mru) {
+        pair.second.second++;
+        }
+      }
+    return it -> second.first;
+  }
+// Busqueda en archivo
+ifstream infile("cache_data.txt");
+if (!infile){
+    throw runtime_error("Archivo no encontrado");
+}
+
+string file_key;
+  T found_obj;
+while(infile >> file_key) {
+    if(file_key == key){
+      infile >> found_obj;
+      insert(key, found_obj);
+      return found_obj;
+    }
+    infile.ignore(numeric_limits<streamsize>::max(), '\n');
+  }
+  throw runtime_error("Clave no encontrada");
+}
+
